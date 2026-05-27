@@ -24,7 +24,7 @@ const HRDashboard = () => {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/users', {
+      const res = await fetch('https://safecompanion.onrender.com/api/auth/users', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -43,7 +43,7 @@ const HRDashboard = () => {
   const fetchEvidenceLogs = async () => {
     setLoadingEvidence(true);
     try {
-      const res = await fetch('/api/auth/evidence', {
+      const res = await fetch('https://safecompanion.onrender.com/api/auth/evidence', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -158,7 +158,7 @@ const HRDashboard = () => {
     
     // Update MERN database user status to "Anomaly Detected"
     try {
-      await fetch('/api/auth/status', {
+      await fetch('https://safecompanion.onrender.com/api/auth/status', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

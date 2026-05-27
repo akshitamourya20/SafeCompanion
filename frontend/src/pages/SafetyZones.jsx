@@ -33,7 +33,7 @@ const SafetyZones = () => {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/reports');
+      const res = await fetch('https://safecompanion.onrender.com/api/reports');
       const data = await res.json();
       if (data.success) {
         setReports(data.reports);
@@ -66,7 +66,7 @@ const SafetyZones = () => {
     const simulatedLatLng = canvasToLatLng(clickCoords.x, clickCoords.y);
 
     try {
-      const res = await fetch('/api/reports', {
+      const res = await fetch('https://safecompanion.onrender.com/api/reports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

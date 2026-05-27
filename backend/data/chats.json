@@ -1,0 +1,19 @@
+[
+  {
+    "_id": "chat_1779891076476",
+    "user": "local_1779891021267",
+    "messages": [
+      {
+        "sender": "user",
+        "text": "i am alone in neelbad bhopal",
+        "timestamp": 1779891076477
+      },
+      {
+        "sender": "assistant",
+        "text": "Understood, Akshita Mourya. Walking alone at night can be stressful. Let me activate \"Active Escort Mode\". I'll trigger check-ins every 2 minutes. \n\nHere are safety recommendations:\n1. Hold your phone firmly in your hand with the SafeCompanion app open.\n2. Keep your headphones out so you are fully aware of your surroundings.\n3. Walk in well-lit areas, even if it adds 5 minutes to your journey.\n4. I have prepared the \"Anonymous AI Call\" to play whenever you feel a stranger getting too close. Would you like me to trigger a mock family call now?",
+        "timestamp": 1779891076477
+      }
+    ],
+    "createdAt": "2026-05-27T14:11:16.476Z"
+  }
+]

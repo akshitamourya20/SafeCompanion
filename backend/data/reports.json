@@ -1,0 +1,50 @@
+[
+  {
+    "_id": "report_seed_0_1779891060896",
+    "title": "Capgemini Tech Park Safe Zone",
+    "description": "Highly secure tech campus, fully lit, 24/7 security guards and continuous CCTV monitoring.",
+    "type": "safe",
+    "location": {
+      "lat": 12.972,
+      "lng": 77.595
+    },
+    "reporter": null,
+    "createdAt": "2026-05-27T14:11:00.896Z"
+  },
+  {
+    "_id": "report_seed_1_1779891060896",
+    "title": "Isolated Alley Way",
+    "description": "Extremely dark, non-functioning streetlights, high isolated activity at night. Better to avoid.",
+    "type": "unsafe",
+    "location": {
+      "lat": 12.969,
+      "lng": 77.591
+    },
+    "reporter": null,
+    "createdAt": "2026-05-27T14:11:00.896Z"
+  },
+  {
+    "_id": "report_seed_2_1779891060896",
+    "title": "Active Police Patrol Beat",
+    "description": "Police interceptor vehicle stationed here every evening from 10 PM to 6 AM.",
+    "type": "police",
+    "location": {
+      "lat": 12.975,
+      "lng": 77.598
+    },
+    "reporter": null,
+    "createdAt": "2026-05-27T14:11:00.896Z"
+  },
+  {
+    "_id": "report_seed_3_1779891060896",
+    "title": "Construction Area Road Block",
+    "description": "Ongoing metro construction, narrows the road, very low visibility. Take detours.",
+    "type": "warning",
+    "location": {
+      "lat": 12.974,
+      "lng": 77.592
+    },
+    "reporter": null,
+    "createdAt": "2026-05-27T14:11:00.896Z"
+  }
+]

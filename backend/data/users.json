@@ -1,0 +1,27 @@
+[
+  {
+    "_id": "local_1779891021267",
+    "username": "Akshita Mourya",
+    "email": "akshitamourya283@gmail.com",
+    "password": "$2a$10$BC3RgEI/kCmKVSYREfZ6Eu8tGJ4hNyOaUO5QiWgI18rI1x1VmnarK",
+    "role": "user",
+    "shiftTime": "22:00 - 06:00",
+    "status": "Safe",
+    "emergencyContacts": [
+      {
+        "name": "Family Guard 1",
+        "phone": "+91 99999 88888"
+      },
+      {
+        "name": "Safety Officer (HR)",
+        "phone": "+91 88888 77777"
+      }
+    ],
+    "location": {
+      "lat": 12.971620656399654,
+      "lng": 77.59457924338325,
+      "updatedAt": 1779906093027
+    },
+    "createdAt": "2026-05-27T14:10:21.268Z"
+  }
+]

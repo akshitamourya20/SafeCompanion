@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       try {
-        const response = await fetch('https://safecompanion.onrender.com/api/auth/me', {
+        const response = await fetch('https://safecompanion-rxve.onrender.com/api/auth/me', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
   // Register user
   const register = async (username, email, password, role, shiftTime) => {
     try {
-      const response = await fetch('https://safecompanion.onrender.com/api/auth/register', {
+      const response = await fetch('https://safecompanion-rxve.onrender.com/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
   // Login user
   const login = async (email, password) => {
     try {
-      const response = await fetch('https://safecompanion.onrender.com/api/auth/login', {
+      const response = await fetch('https://safecompanion-rxve.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -98,7 +98,7 @@ export const AuthProvider = ({ children }) => {
   const updateContacts = async (emergencyContacts) => {
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const response = await fetch('https://safecompanion.onrender.com/api/auth/contacts', {
+      const response = await fetch('https://safecompanion-rxve.onrender.com/api/auth/contacts', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }) => {
   const updateStatus = async (status) => {
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const response = await fetch('https://safecompanion.onrender.com/api/auth/status', {
+      const response = await fetch('https://safecompanion-rxve.onrender.com/api/auth/status', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ export const AuthProvider = ({ children }) => {
   const updateLocation = async (lat, lng) => {
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const response = await fetch('https://safecompanion.onrender.com/api/auth/location', {
+      const response = await fetch('https://safecompanion-rxve.onrender.com/api/auth/location', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ export const AuthProvider = ({ children }) => {
   const uploadEvidence = async (transcript, audioLength) => {
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const response = await fetch('https://safecompanion.onrender.com/api/auth/evidence', {
+      const response = await fetch('https://safecompanion-rxve.onrender.com/api/auth/evidence', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

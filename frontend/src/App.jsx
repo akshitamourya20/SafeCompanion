@@ -1,8 +1,9 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import Sentinel from './pages/Sentinel';
 import SafetyZones from './pages/SafetyZones';
 import AIChat from './pages/AIChat';
 import HRDashboard from './pages/HRDashboard';
@@ -14,6 +15,78 @@ const SafeCompanionApp = () => {
   const { user, loading, logout } = useContext(AuthContext);
   const [page, setPage] = useState('login');
   const [showAICall, setShowAICall] = useState(false);
+  const [activeSection, setActiveSection] = useState('cockpit');
+  const isScrollingRef = useRef(false);
+
+  // Handle calculator disguise unlock callback
+  const handleUnlockDisguise = () => {
+    setPage('dashboard');
+  };
+
+  // Helper to compute absolute offset from the top of the document
+  const getAbsoluteOffsetTop = (el) => {
+    let offsetTop = 0;
+    let current = el;
+    while (current) {
+      offsetTop += current.offsetTop;
+      current = current.offsetParent;
+    }
+    return offsetTop;
+  };
+
+  // ScrollSpy Listener: Detects which section is active on scroll and updates the active navbar tab!
+  useEffect(() => {
+    if (!user || page !== 'dashboard') return;
+
+    const sections = ['cockpit', 'voice-sentinel', 'map-zones', 'ai-chat', 'settings'];
+    if (user.role === 'hr') sections.push('hr-console');
+
+    const handleScroll = () => {
+      // If we are actively animating a smooth scroll via clicking, skip updating state to prevent stutters
+      if (isScrollingRef.current) return;
+
+      const scrollPosition = window.scrollY + 140; // Offset for the top sticky bar
+
+      for (const sectionId of sections) {
+        const el = document.getElementById(sectionId);
+        if (el) {
+          const top = getAbsoluteOffsetTop(el);
+          const height = el.offsetHeight;
+          if (scrollPosition >= top && scrollPosition < top + height) {
+            setActiveSection(sectionId);
+            break;
+          }
+        }
+      }
+    };
+
+    // Run once on load to highlight the current section
+    handleScroll();
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [user, page]);
+
+  // Smooth scroll handler
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      isScrollingRef.current = true;
+      setActiveSection(id);
+
+      const targetTop = getAbsoluteOffsetTop(el) - 80; // Offset for sticky navbar
+
+      window.scrollTo({
+        top: targetTop,
+        behavior: 'smooth'
+      });
+
+      // Release lock after smooth scroll animation completes (800ms)
+      setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 800);
+    }
+  };
 
   // Loading Screen
   if (loading) {
@@ -33,11 +106,6 @@ const SafeCompanionApp = () => {
     );
   }
 
-  // Handle disguise unlock callback
-  const handleUnlockDisguise = () => {
-    setPage('dashboard');
-  };
-
   // If user is disguised as calculator
   if (user && page === 'disguise') {
     return <StealthDisguise onUnlock={handleUnlockDisguise} />;
@@ -51,118 +119,110 @@ const SafeCompanionApp = () => {
     return <Login setPage={setPage} />;
   }
 
-  // If user is authenticated, render Main Dashboard Navigation Structure
+  // If user is authenticated, render the single-page dashboard layout with sticky horizontal navbar
   return (
     <div className="app-container">
       
-      {/* Sidebar Navigation */}
-      <aside className="sidebar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '20px', borderBottom: '1px solid var(--border-glass)' }}>
-          <span style={{ fontSize: '2rem' }}>🛡️</span>
-          <div>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: '800', lineHeight: 1.1 }} className="text-gradient">SafeCompanion</h2>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Buildathon 2026</span>
-          </div>
-        </div>
-
-        <ul className="nav-list">
-          <li>
-            <div
-              className={`nav-item ${page === 'dashboard' ? 'active' : ''}`}
-              onClick={() => setPage('dashboard')}
-            >
-              <i className="fa-solid fa-circle-nodes"></i>
-              <span>Safety Cockpit</span>
-            </div>
-          </li>
-          <li>
-            <div
-              className={`nav-item ${page === 'zones' ? 'active' : ''}`}
-              onClick={() => setPage('zones')}
-            >
-              <i className="fa-solid fa-map-location-dot"></i>
-              <span>Safety Zones</span>
-            </div>
-          </li>
-          <li>
-            <div
-              className={`nav-item ${page === 'chat' ? 'active' : ''}`}
-              onClick={() => setPage('chat')}
-            >
-              <i className="fa-solid fa-user-shield"></i>
-              <span>AI Guardian Chat</span>
-            </div>
-          </li>
-          
-          {/* MERN corporate HR role routing restriction */}
-          {user.role === 'hr' && (
-            <li>
-              <div
-                className={`nav-item ${page === 'hr' ? 'active' : ''}`}
-                onClick={() => setPage('hr')}
-              >
-                <i className="fa-solid fa-laptop-code"></i>
-                <span>Corporate HR Console</span>
-              </div>
-            </li>
-          )}
-
-          <li>
-            <div
-              className={`nav-item ${page === 'settings' ? 'active' : ''}`}
-              onClick={() => setPage('settings')}
-            >
-              <i className="fa-solid fa-sliders"></i>
-              <span>Guard Settings</span>
-            </div>
-          </li>
-        </ul>
-
-        {/* Sidebar Footer User Badge */}
-        <div className="sidebar-footer">
-          <div className="user-badge">
-            <div className="avatar">
-              {user.username.slice(0, 2).toUpperCase()}
-            </div>
-            <div className="user-info" style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: '700', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                {user.username}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--secondary)', fontWeight: '700', textTransform: 'uppercase' }}>
-                Role: {user.role}
-              </div>
-            </div>
-          </div>
-          
-          <button
-            onClick={() => {
-              logout();
-              setPage('login');
-            }}
-            className="btn-glass"
-            style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
-          >
-            <i className="fa-solid fa-power-off"></i> Sign Out
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
       <main className="main-content">
-        {page === 'dashboard' && <Dashboard triggerAICall={() => setShowAICall(true)} setPage={setPage} />}
-        {page === 'zones' && <SafetyZones />}
-        {page === 'chat' && <AIChat triggerAICall={() => setShowAICall(true)} />}
-        {page === 'hr' && <HRDashboard />}
-        {page === 'settings' && <Settings />}
+        
+        {/* Sticky Top Horizontal Navigation Header */}
+        <nav className="top-navbar-sticky">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.6rem' }}>🛡️</span>
+            <div>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '800', lineHeight: 1 }} className="text-gradient">SafeCompanion</h2>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Safety Guardian Portal</span>
+            </div>
+          </div>
+
+          {/* Nav Tabs */}
+          <ul className="navbar-tabs">
+            <li className={`navbar-tab-item ${activeSection === 'cockpit' ? 'active' : ''}`} onClick={() => scrollToSection('cockpit')}>
+              Cockpit
+            </li>
+            <li className={`navbar-tab-item ${activeSection === 'voice-sentinel' ? 'active' : ''}`} onClick={() => scrollToSection('voice-sentinel')}>
+              Sentinel
+            </li>
+            <li className={`navbar-tab-item ${activeSection === 'map-zones' ? 'active' : ''}`} onClick={() => scrollToSection('map-zones')}>
+              Safety Map
+            </li>
+            <li className={`navbar-tab-item ${activeSection === 'ai-chat' ? 'active' : ''}`} onClick={() => scrollToSection('ai-chat')}>
+              AI Chat
+            </li>
+            {user.role === 'hr' && (
+              <li className={`navbar-tab-item ${activeSection === 'hr-console' ? 'active' : ''}`} onClick={() => scrollToSection('hr-console')}>
+                HR Dashboard
+              </li>
+            )}
+            <li className={`navbar-tab-item ${activeSection === 'settings' ? 'active' : ''}`} onClick={() => scrollToSection('settings')}>
+              Settings
+            </li>
+          </ul>
+
+          {/* User profile and Disguise button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button className="btn-glass" onClick={() => setPage('disguise')} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+              <i className="fa-solid fa-calculator"></i> Mask App
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>
+                {user.username.slice(0, 2).toUpperCase()}
+              </div>
+              <span style={{ fontSize: '0.85rem', fontWeight: '700' }} className="user-info">{user.username}</span>
+            </div>
+            <button
+              onClick={() => {
+                logout();
+                setPage('login');
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontSize: '1rem' }}
+              title="Sign Out"
+            >
+              <i className="fa-solid fa-power-off"></i>
+            </button>
+          </div>
+        </nav>
+
+        {/* Stacked Single-Page Sections */}
+        <div id="cockpit" className="dashboard-section">
+          <Dashboard triggerAICall={() => setShowAICall(true)} setPage={setPage} />
+        </div>
+
+        <div id="voice-sentinel" className="dashboard-section">
+          <h2>🛡️ Voice & Audio Sentinel</h2>
+          <Sentinel triggerAICall={() => setShowAICall(true)} />
+        </div>
+
+        <div id="map-zones" className="dashboard-section">
+          <h2>🗺️ AI Safest Route Map</h2>
+          <SafetyZones />
+        </div>
+
+        <div id="ai-chat" className="dashboard-section">
+          <h2>💬 AI Safety Guardian</h2>
+          <AIChat triggerAICall={() => setShowAICall(true)} />
+        </div>
+        
+        {user.role === 'hr' && (
+          <div id="hr-console" className="dashboard-section">
+            <h2>💼 B2B Employee Safety console</h2>
+            <HRDashboard />
+          </div>
+        )}
+
+        <div id="settings" className="dashboard-section">
+          <h2>⚙️ Guard Settings</h2>
+          <Settings />
+        </div>
+
       </main>
 
-      {/* Star Feature: Anonymous Deterrent phone call screen overlay */}
+      {/* Star Feature: Anonymous speech dialer call screen overlay */}
       <AnonymousCall active={showAICall} onClose={() => setShowAICall(false)} />
     </div>
   );
 };
 
-// Top wrapper providing global Auth Context
 const App = () => {
   return (
     <AuthProvider>

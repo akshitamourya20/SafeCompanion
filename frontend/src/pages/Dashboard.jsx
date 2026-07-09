@@ -4,38 +4,31 @@ import { AuthContext } from '../context/AuthContext';
 const Dashboard = ({ triggerAICall, setPage }) => {
   const { user, updateStatus, updateLocation, uploadEvidence } = useContext(AuthContext);
   const [sosCountdown, setSosCountdown] = useState(null);
-  const [anomalyMode, setAnomalyMode] = useState(false);
-  const [sttListening, setSttListening] = useState(false);
   const [gpsSimulated, setGpsSimulated] = useState({ lat: 12.9716, lng: 77.5946 });
   const [twilioAlertLog, setTwilioAlertLog] = useState([]);
   
   // Advanced Features State
-  const [audioClassifierActive, setAudioClassifierActive] = useState(true);
-  const [noiseLevel, setNoiseLevel] = useState(15); // Dynamic slider simulation
   const [evidenceSyncedLogs, setEvidenceSyncedLogs] = useState([]);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
 
-  // Real Voice Distress Recognition using browser SpeechRecognition API
-  let recognition = null;
-  if (window.SpeechRecognition || window.webkitSpeechRecognition) {
-    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new Speech();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = 'en-IN';
-  }
-
-  // Simulated live audio sound meter spikes
+  // Request browser location permission on load if logged in
   useEffect(() => {
-    let interval;
-    if (audioClassifierActive && user.status === 'Safe') {
-      interval = setInterval(() => {
-        // Random sound waves between 8dB and 45dB
-        setNoiseLevel(Math.floor(Math.random() * 25) + 12);
-      }, 800);
+    if (user && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setGpsSimulated({ lat, lng });
+          updateLocation(lat, lng);
+          logTwilioAlert(`📍 REAL GPS POSITION ACQUIRED: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        },
+        (error) => {
+          console.warn("Location permission denied, using simulated coordinates:", error.message);
+          logTwilioAlert("⚠️ GPS Permission denied. Running on simulated coordinates.");
+        }
+      );
     }
-    return () => clearInterval(interval);
-  }, [audioClassifierActive, user]);
+  }, [user]);
 
   useEffect(() => {
     // Continuous GPS updates simulation
@@ -60,13 +53,11 @@ const Dashboard = ({ triggerAICall, setPage }) => {
     let interval;
     let timer;
     if (user.status === 'SOS Active') {
-      // Start recording timer
       setRecordingSeconds(0);
       timer = setInterval(() => {
         setRecordingSeconds(prev => prev + 1);
       }, 1000);
 
-      // Simulate evidence uploads every 5 seconds to MERN cloud!
       let counter = 0;
       interval = setInterval(async () => {
         counter += 5;
@@ -77,7 +68,6 @@ const Dashboard = ({ triggerAICall, setPage }) => {
         ];
         const selectedTranscription = transcriptions[Math.floor(Math.random() * transcriptions.length)];
         
-        // Save to real localDb/Mongoose evidence database dynamically!
         const res = await uploadEvidence(selectedTranscription, `0:${counter.toString().padStart(2, '0')}`);
         
         if (res.success) {
@@ -98,52 +88,16 @@ const Dashboard = ({ triggerAICall, setPage }) => {
     };
   }, [user.status]);
 
-  // Handle Speech Recognition Distress Detection
-  useEffect(() => {
-    if (sttListening && recognition) {
-      recognition.onresult = (event) => {
-        const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
-        console.log("🎤 Voice input detected:", transcript);
-        
-        const distressWords = ['help me', 'screaming', 'bachao', 'save me', 'police', 'stop it', 'please stop', 'danger', 'stranger'];
-        const matchedWord = distressWords.find(word => transcript.includes(word));
-        
-        if (matchedWord) {
-          logTwilioAlert(`Voice distress keyword "${matchedWord}" detected! Auto-escalating.`);
-          triggerSOS();
-        }
-      };
-
-      recognition.onerror = (err) => {
-        console.error("Speech Recognition error:", err);
-      };
-
-      recognition.onend = () => {
-        if (sttListening) recognition.start();
-      };
-
-      recognition.start();
-    } else if (recognition) {
-      recognition.stop();
-    }
-
-    return () => {
-      if (recognition) recognition.stop();
-    };
-  }, [sttListening]);
-
-  const toggleVoiceGuardian = () => {
-    if (!recognition) {
-      alert("⚠️ Your browser does not support HTML5 Speech Recognition. Please try Google Chrome or Edge.");
-      return;
-    }
-    setSttListening(!sttListening);
-  };
-
   const triggerSOS = async () => {
     setSosCountdown(null);
     await updateStatus('SOS Active');
-    logTwilioAlert('🔴 TWILIO ALERT: Sent emergency location SMS & audio call to all contacts.');
+    
+    // Twilio Mock Warning Dispatch containing real emergency contacts!
+    const contactsText = user.emergencyContacts && user.emergencyContacts.length > 0
+      ? user.emergencyContacts.map(c => `${c.name} (${c.phone})`).join(', ')
+      : "Emergency Contacts List";
+      
+    logTwilioAlert(`🔴 TWILIO EMERGENCY DISPATCH: Sent live location SMS & audio call to your circle: ${contactsText}`);
     triggerAICall();
   };
 
@@ -175,29 +129,7 @@ const Dashboard = ({ triggerAICall, setPage }) => {
     }
     setSosCountdown(null);
     await updateStatus('Safe');
-    setAnomalyMode(false);
-    logTwilioAlert('🟢 STATUS RESOLVED: Alarm canceled. Contacts notified of safety.');
-  };
-
-  const simulateLSTMAnomaly = async () => {
-    if (user.status === 'SOS Active') return;
-    
-    setAnomalyMode(true);
-    await updateStatus('Anomaly Detected');
-    logTwilioAlert('⚠️ LSTM ANOMALY: Route deviation of 350 meters detected. Corporate HR dashboard alerted.');
-    
-    setTimeout(async () => {
-      const userElement = document.getElementById('dashboard-status-banner');
-      if (userElement && userElement.innerText.includes('ANOMALY')) {
-        await triggerSOS();
-      }
-    }, 12000);
-  };
-
-  const simulateSoundScreamTrigger = () => {
-    setNoiseLevel(95); // Spikes graph to red
-    logTwilioAlert('🔊 SOUND SENTINEL: Audio classification captured vocal scream spike (92dB)! Auto-activating.');
-    triggerSOS();
+    logTwilioAlert('🟢 STATUS RESOLVED: Alarm canceled. emergency contacts notified of safety.');
   };
 
   const logTwilioAlert = (msg) => {
@@ -257,25 +189,28 @@ const Dashboard = ({ triggerAICall, setPage }) => {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: user.status === 'SOS Active' ? '1.2fr 1fr' : '1fr', gap: '24px', transition: 'all 0.5s' }}>
+      <div className="cockpit-grid" style={{ gridTemplateColumns: user.status === 'SOS Active' ? '1.2fr 1fr' : undefined }}>
         
-        {/* Core SOS Button */}
-        <div className="glass-panel" style={{ padding: '36px', textAlign: 'center' }}>
-          <div style={{ position: 'relative', width: '220px', margin: '0 auto 20px' }}>
-            <div className="sos-outer-ring">
-              <div className="sos-middle-ring">
+        {/* Card 1: Core SOS Button */}
+        <div className="glass-panel" style={{ padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ position: 'relative', width: '180px', margin: '0 auto 16px' }}>
+            <div className="sos-outer-ring" style={{ width: '150px', height: '150px' }}>
+              <div className="sos-middle-ring" style={{ width: '125px', height: '125px' }}>
                 <button
                   className="sos-btn"
                   onClick={startSOSCountdown}
                   style={{
+                    width: '100px',
+                    height: '100px',
+                    fontSize: '1.25rem',
                     background: sosCountdown !== null ? 'var(--secondary)' : undefined,
                     boxShadow: sosCountdown !== null ? '0 8px 30px var(--secondary-glow)' : undefined
                   }}
                 >
                   {sosCountdown !== null ? (
-                    <span style={{ fontSize: '2.5rem', fontWeight: '900' }}>{sosCountdown}</span>
+                    <span style={{ fontSize: '2rem', fontWeight: '900' }}>{sosCountdown}</span>
                   ) : user.status === 'SOS Active' ? (
-                    <span style={{ fontSize: '1rem' }}><i className="fa-solid fa-shield-halved fa-beat"></i> ON CALL</span>
+                    <span style={{ fontSize: '0.85rem' }}><i className="fa-solid fa-shield-halved fa-beat"></i> ON CALL</span>
                   ) : (
                     <span>SOS</span>
                   )}
@@ -283,24 +218,53 @@ const Dashboard = ({ triggerAICall, setPage }) => {
               </div>
             </div>
           </div>
-          <h2 style={{ fontSize: '1.4rem', marginBottom: '8px' }}>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '6px' }}>
             {sosCountdown !== null ? 'HOLD TO CANCEL - SENDING IN...' : user.status === 'SOS Active' ? 'SOS BROADCAST ACTIVE' : 'TAP TO BROADCAST'}
           </h2>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto', fontSize: '0.9rem' }}>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto', fontSize: '0.85rem', marginBottom: '12px' }}>
             {user.status === 'SOS Active'
               ? 'Your emergency contacts are receiving live location links. Incident sound records are locked.'
               : 'Press once to trigger a 3-second countdown. Shouting distress keywords triggers instantly.'}
           </p>
+
+          {/* Real-time Clickable Call Buttons for Emergency Circle */}
+          {user.status === 'SOS Active' && user.emergencyContacts && user.emergencyContacts.length > 0 && (
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                📞 Call Guardian Instantly:
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                {user.emergencyContacts.map((contact, idx) => (
+                  <a
+                    key={idx}
+                    href={`tel:${contact.phone}`}
+                    className="btn-secondary"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.78rem',
+                      textDecoration: 'none',
+                      borderRadius: '6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <i className="fa-solid fa-phone"></i> Call {contact.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Real-time Evidence Vault Secure Upload Console (Visible during active SOS!) */}
-        {user.status === 'SOS Active' && (
+        {/* Card 2: Real-time Evidence Vault (Active SOS) OR Anonymous Call Card (Safe) */}
+        {user.status === 'SOS Active' ? (
           <div className="glass-panel" style={{ padding: '24px', borderLeft: '4px solid var(--danger)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)' }}>
                 <i className="fa-solid fa-lock fa-bounce"></i> AI Evidence Vault
               </h3>
-              <div style={{ background: 'rgba(255,0,84,0.15)', color: 'var(--danger)', fontSize: '0.72rem', fontWeight: '800', padding: '4px 8px', borderRadius: '4px' }}>
+              <div style={{ background: 'rgba(184,58,37,0.15)', color: 'var(--danger)', fontSize: '0.72rem', fontWeight: '800', padding: '4px 8px', borderRadius: '4px' }}>
                 🔴 SECURE STREAMING
               </div>
             </div>
@@ -309,14 +273,14 @@ const Dashboard = ({ triggerAICall, setPage }) => {
               Smartphone microphones are active. Audio streams are divided into 3-second packages, encrypted with **AES-256**, and dynamically synced to MERN nodes.
             </p>
 
-            <div style={{ background: '#0a051b', borderRadius: '10px', padding: '16px', flex: 1, overflowY: 'auto', maxHeight: '160px', border: '1px solid var(--border-glass)' }}>
+            <div style={{ background: '#171311', borderRadius: '10px', padding: '16px', flex: 1, overflowY: 'auto', maxHeight: '160px', border: '1px solid var(--border-glass)' }}>
               {evidenceSyncedLogs.length === 0 ? (
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textAlign: 'center', padding: '16px' }}>
                   <i className="fa-solid fa-spinner fa-spin"></i> Initializing encrypted connection block...
                 </div>
               ) : (
                 evidenceSyncedLogs.map((log, index) => (
-                  <div key={index} style={{ fontSize: '0.8rem', color: '#06d6a0', fontFamily: 'monospace', marginBottom: '8px', borderBottom: '1px dashed rgba(6,214,160,0.1)', paddingBottom: '6px' }}>
+                  <div key={index} style={{ fontSize: '0.8rem', color: 'var(--primary)', fontFamily: 'monospace', marginBottom: '8px', borderBottom: '1px dashed rgba(221,192,169,0.1)', paddingBottom: '6px' }}>
                     {log}
                   </div>
                 ))
@@ -327,107 +291,83 @@ const Dashboard = ({ triggerAICall, setPage }) => {
               <span style={{ color: 'var(--secondary)' }}>Cloud Vault: Synced ({evidenceSyncedLogs.length} blocks)</span>
             </div>
           </div>
+        ) : (
+          <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div className="avatar" style={{ background: 'var(--secondary)' }}>
+                <i className="fa-solid fa-phone-volume"></i>
+              </div>
+              <div style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: '700', padding: '4px 8px' }}>
+                STAR FEATURE
+              </div>
+            </div>
+            <h3 style={{ marginBottom: '6px', fontSize: '1.25rem' }}>Anonymous AI Call</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '16px' }}>
+              Generates a realistic family guardian or police checkpost call playing loudly on speaker to scare away strangers. Customize caller profile in Settings.
+            </p>
+            <button className="btn-secondary" onClick={triggerAICall} style={{ width: '100%', padding: '12px', fontSize: '0.9rem' }}>
+              <span><i className="fa-solid fa-phone"></i> Play Deterrent Call</span>
+            </button>
+          </div>
         )}
 
-      </div>
-
-      {/* 4 Feature HUD Grid */}
-      <div className="hud-grid" style={{ marginTop: '24px' }}>
-        
-        {/* Voice Distress Indicator */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div className="avatar" style={{ background: 'var(--primary)' }}>
-              <i className="fa-solid fa-microphone"></i>
-            </div>
-            <div style={{ background: sttListening ? 'rgba(6, 214, 160, 0.15)' : 'rgba(255,255,255,0.05)', color: sttListening ? '#06d6a0' : 'var(--text-muted)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700' }}>
-              {sttListening ? 'ACTIVE MONITOR' : 'DISABLED'}
-            </div>
-          </div>
-          <h3 style={{ marginBottom: '8px' }}>Voice Distress Detection</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '16px' }}>
-            Uses Gemini STT framework to listen hands-free. Triggers emergency if you shout "Help me" or "Bachao".
-          </p>
-          <button className={`btn-glass ${sttListening ? 'active' : ''}`} onClick={toggleVoiceGuardian} style={{ width: '100%' }}>
-            {sttListening ? (
-              <span><i className="fa-solid fa-microphone-slash"></i> Stop Voice Guardian</span>
-            ) : (
-              <span><i className="fa-solid fa-microphone"></i> Enable Voice Guardian</span>
-            )}
-          </button>
-        </div>
-
-        {/* AI Ambient Noise Classifier Widget (NEW FEATURE) */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div className="avatar" style={{ background: 'var(--info)' }}>
-              <i className="fa-solid fa-waveform"></i>
-            </div>
-            <div style={{ background: audioClassifierActive ? 'rgba(0, 245, 212, 0.15)' : 'rgba(255,255,255,0.05)', color: '#00f5d4', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700' }}>
-              {audioClassifierActive ? 'LISTENING' : 'OFF'}
-            </div>
-          </div>
-          <h3 style={{ marginBottom: '8px' }}>Sound Classifier Sentinel</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '16px' }}>
-            Lightweight audio wave categorizer tracking ambient screams or scuffles in real time.
-          </p>
-          
-          {audioClassifierActive && user.status === 'Safe' ? (
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                <span>Ambient Sound (dB)</span>
-                <span style={{ color: noiseLevel > 50 ? 'var(--danger)' : '#00f5d4' }}>{noiseLevel} dB</span>
+        {/* Card 3: Quick-Dial Emergency Circle (Only visible when status is Safe) */}
+        {user.status !== 'SOS Active' && (
+          <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div className="avatar" style={{ background: 'var(--primary)' }}>
+                <i className="fa-solid fa-phone"></i>
               </div>
-              <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, (noiseLevel / 90) * 100)}%`, height: '100%', background: noiseLevel > 55 ? 'var(--danger)' : 'linear-gradient(to right, #00f5d4, var(--primary))', transition: 'width 0.4s ease' }}></div>
+              <div style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: '700', padding: '4px 8px' }}>
+                QUICK CONTACT
               </div>
             </div>
-          ) : (
-            <div style={{ height: '40px' }}></div>
-          )}
-
-          <button className="btn-glass" onClick={simulateSoundScreamTrigger} disabled={user.status !== 'Safe'} style={{ width: '100%' }}>
-            <span><i className="fa-solid fa-volume-xmark"></i> Simulate Sound Spike</span>
-          </button>
-        </div>
-
-        {/* LSTM Movement Anomaly */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div className="avatar" style={{ background: 'var(--secondary)' }}>
-              <i className="fa-solid fa-route"></i>
-            </div>
-            <div style={{ background: anomalyMode ? 'rgba(255, 0, 84, 0.15)' : 'rgba(255,255,255,0.05)', color: anomalyMode ? 'var(--danger)' : 'var(--text-muted)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700' }}>
-              {anomalyMode ? 'ANOMALY!' : 'TRACKING'}
+            <h3 style={{ marginBottom: '6px', fontSize: '1.25rem' }}>Emergency Circle</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '16px' }}>
+              One-click dial to call your trusted emergency contacts directly from your device.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {user.emergencyContacts && user.emergencyContacts.length > 0 ? (
+                user.emergencyContacts.map((contact, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '8px',
+                    padding: '8px 12px'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: '700' }}>{contact.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{contact.phone}</div>
+                    </div>
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="btn-glass"
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        textDecoration: 'none',
+                        borderRadius: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <i className="fa-solid fa-phone" style={{ fontSize: '0.75rem' }}></i> Call
+                    </a>
+                  </div>
+                ))
+              ) : (
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '12px' }}>
+                  No contacts found. Configure them under the <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: '600' }} onClick={() => document.getElementById('settings')?.scrollIntoView({ behavior: 'smooth' })}>Settings</span> tab.
+                </div>
+              )}
             </div>
           </div>
-          <h3 style={{ marginBottom: '8px' }}>Movement Anomaly (LSTM)</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '16px' }}>
-            Detects deviation from mapped route, abrupt halts, or being followed using TensorFlow.js LSTM model.
-          </p>
-          <button className="btn-glass" onClick={simulateLSTMAnomaly} disabled={user.status !== 'Safe'} style={{ width: '100%' }}>
-            <span><i className="fa-solid fa-bolt"></i> Simulate Route Deviation</span>
-          </button>
-        </div>
-
-        {/* Anonymous AI Deterrent Call */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div className="avatar" style={{ background: 'var(--danger)' }}>
-              <i className="fa-solid fa-phone-volume"></i>
-            </div>
-            <div style={{ color: 'var(--secondary)', fontSize: '0.75rem', fontWeight: '700', padding: '4px 8px' }}>
-              STAR FEATURE
-            </div>
-          </div>
-          <h3 style={{ marginBottom: '8px' }}>Anonymous AI Call</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '16px' }}>
-            Generates realistic family guardian call plays loudly on speaker to scare away strangers and attackers.
-          </p>
-          <button className="btn-secondary" onClick={triggerAICall} style={{ width: '100%' }}>
-            <span><i className="fa-solid fa-phone"></i> Play Deterrent Call</span>
-          </button>
-        </div>
+        )}
 
       </div>
 
@@ -441,7 +381,7 @@ const Dashboard = ({ triggerAICall, setPage }) => {
             {twilioAlertLog.map(log => (
               <div key={log.id} style={{ display: 'flex', gap: '12px', fontSize: '0.85rem', marginBottom: '10px', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '8px' }}>
                 <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>[{log.time}]</span>
-                <span style={{ color: log.text.includes('🔴') ? 'var(--danger)' : log.text.includes('⚠️') ? 'var(--secondary)' : '#06d6a0', fontWeight: '600' }}>
+                <span style={{ color: log.text.includes('🔴') ? 'var(--secondary)' : log.text.includes('⚠️') ? 'var(--secondary)' : 'var(--primary)', fontWeight: '600' }}>
                   {log.text}
                 </span>
               </div>

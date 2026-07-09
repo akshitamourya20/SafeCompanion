@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
 const SafetyZones = () => {
@@ -11,25 +11,18 @@ const SafetyZones = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newType, setNewType] = useState('safe');
-  const [clickCoords, setClickCoords] = useState({ x: 300, y: 200 });
+  const [clickCoords, setClickCoords] = useState(null);
   
-  // ADVANCED FEATURE: Routing Toggler (Default Route vs. AI Crime-Sentry Safest Route!)
-  const [routingMode, setRoutingMode] = useState('safest'); // 'fastest' or 'safest'
+  // Routing Mode: 'safest', 'fastest', or 'crowded'
+  const [routingMode, setRoutingMode] = useState('safest');
   
-  const mapCenter = { lat: 12.9716, lng: 77.5946 };
-  
-  const canvasToLatLng = (x, y) => {
-    const lat = mapCenter.lat + (200 - y) * 0.0001;
-    const lng = mapCenter.lng + (x - 400) * 0.0001;
-    return { lat, lng };
-  };
+  // Real GPS Coordinates (Default: Bengaluru, India)
+  const [gpsLocation, setGpsLocation] = useState({ lat: 12.9716, lng: 77.5946 });
+  const mapRef = useRef(null);
+  const markersRef = useRef([]);
+  const routesRef = useRef([]);
 
-  const latLngToCanvas = (lat, lng) => {
-    const y = 200 - (lat - mapCenter.lat) / 0.0001;
-    const x = 400 + (lng - mapCenter.lng) / 0.0001;
-    return { x, y };
-  };
-
+  // Fetch reports from MongoDB backend
   const fetchReports = async () => {
     setLoading(true);
     try {
@@ -49,21 +42,161 @@ const SafetyZones = () => {
     fetchReports();
   }, []);
 
-  const handleMapClick = (e) => {
-    const canvas = e.target;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  // Request user's real location on load
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setGpsLocation(coords);
+        },
+        (error) => {
+          console.warn("Using default Bengaluru coordinates because:", error.message);
+        }
+      );
+    }
+  }, []);
+
+  // Initialize and update the Leaflet Map
+  useEffect(() => {
+    if (!window.L) return;
+
+    // Remove existing map instance if it exists to prevent container re-initialization error
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    // Initialize Map container with scrollWheelZoom disabled to prevent scroll trapping
+    const map = window.L.map('map-id', {
+      scrollWheelZoom: false
+    }).setView([gpsLocation.lat, gpsLocation.lng], 15);
+    mapRef.current = map;
+
+    // Use custom styled CartoDB Dark Matter / Warm Brownish map tiles
+    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
+    }).addTo(map);
+
+    // Drop main user position pin
+    const userIcon = window.L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style="background-color: var(--primary); border: 2px solid white; width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 10px var(--primary-glow);"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
+    });
+
+    window.L.marker([gpsLocation.lat, gpsLocation.lng], { icon: userIcon })
+      .addTo(map)
+      .bindPopup("<b>Your Current Position</b><br/>Real-time GPS Co-Pilot active.")
+      .openPopup();
+
+    // Set up Map click listener to add custom safety reports
+    map.on('click', (e) => {
+      setClickCoords(e.latlng);
+      setModalOpen(true);
+    });
+
+    // Draw dynamic route paths relative to user's real location
+    const start = [gpsLocation.lat, gpsLocation.lng];
+    const end = [gpsLocation.lat + 0.005, gpsLocation.lng + 0.005];
     
-    setClickCoords({ x, y });
-    setModalOpen(true);
-  };
+    // 1. FASTEST ROUTE (Direct cutting through darker/riskier alleys - Red line)
+    const fastestPath = [
+      start,
+      [gpsLocation.lat + 0.002, gpsLocation.lng + 0.002],
+      end
+    ];
+
+    // 2. AI SAFEST ROUTE (Curves away from threats, passes police checkposts - Greenish Beige)
+    const safestPath = [
+      start,
+      [gpsLocation.lat + 0.001, gpsLocation.lng + 0.003],
+      [gpsLocation.lat + 0.003, gpsLocation.lng + 0.004],
+      end
+    ];
+
+    // 3. CROWDED ROUTE (Passes through busy commercial main roads - High Pedestrian Flow - Blue/Copper)
+    const crowdedPath = [
+      start,
+      [gpsLocation.lat + 0.003, gpsLocation.lng + 0.001],
+      [gpsLocation.lat + 0.004, gpsLocation.lng + 0.003],
+      end
+    ];
+
+    // Draw selected route line on map
+    let activePath, pathColor, pathName;
+    if (routingMode === 'fastest') {
+      activePath = fastestPath;
+      pathColor = '#b83a25'; // Reddish
+      pathName = 'Fastest Route (Risky Alleyways)';
+    } else if (routingMode === 'safest') {
+      activePath = safestPath;
+      pathColor = '#ddc0a9'; // Beige Almond
+      pathName = 'AI Safest Route (Police Beats)';
+    } else {
+      activePath = crowdedPath;
+      pathColor = '#8a7366'; // Cinnamon Brown (Crowded)
+      pathName = 'Crowded Pedestrian Route (Safe)';
+    }
+
+    const routeLine = window.L.polyline(activePath, {
+      color: pathColor,
+      weight: 6,
+      opacity: 0.85,
+      lineJoin: 'round'
+    }).addTo(map);
+
+    routesRef.current.push(routeLine);
+
+    // Zoom map to fit active route
+    map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+    // Draw database reports as custom markers
+    reports.forEach((report) => {
+      if (!report.location || report.location.lat === undefined) return;
+      
+      let markerColor = '#ddc0a9'; // Safe (Beige)
+      if (report.type === 'unsafe') markerColor = '#b83a25'; // Red
+      if (report.type === 'warning') markerColor = '#8a7366'; // Brown Warning
+      if (report.type === 'police') markerColor = '#f5f1ed'; // Cream Police
+
+      const customIcon = window.L.divIcon({
+        className: 'custom-marker-icon',
+        html: `<div style="background-color: ${markerColor}; border: 2px solid var(--bg-dark); width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 8px ${markerColor}99;"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+
+      const marker = window.L.marker([report.location.lat, report.location.lng], { icon: customIcon })
+        .addTo(map)
+        .bindPopup(`
+          <div style="font-family: var(--font-main); color: var(--text-main);">
+            <strong style="color: ${markerColor}; text-transform: uppercase;">${report.type} Node: ${report.title}</strong>
+            <p style="font-size: 0.82rem; margin: 4px 0 0 0;">${report.description}</p>
+          </div>
+        `);
+
+      markersRef.current.push(marker);
+    });
+
+    // Cleanup function
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [gpsLocation, reports, routingMode]);
 
   const handleAddReport = async (e) => {
     e.preventDefault();
-    if (!newTitle || !newDesc) return;
-
-    const simulatedLatLng = canvasToLatLng(clickCoords.x, clickCoords.y);
+    if (!newTitle || !newDesc || !clickCoords) return;
 
     try {
       const res = await fetch('https://safecompanion-rxve.onrender.com/api/reports', {
@@ -75,7 +208,7 @@ const SafetyZones = () => {
           title: newTitle,
           description: newDesc,
           type: newType,
-          location: simulatedLatLng,
+          location: { lat: clickCoords.lat, lng: clickCoords.lng },
           userId: user ? user.id : null
         })
       });
@@ -92,276 +225,175 @@ const SafetyZones = () => {
     }
   };
 
-  // Render Canvas Map Grid with safety zones and route paths
-  useEffect(() => {
-    const canvas = document.getElementById('safety-map-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, 800, 400);
-
-    // Draw Dark Cyberpunk Grid background
-    ctx.fillStyle = '#0a051b';
-    ctx.fillRect(0, 0, 800, 400);
-
-    ctx.strokeStyle = 'rgba(157, 78, 221, 0.08)';
-    ctx.lineWidth = 1;
-    const gridSize = 40;
-    
-    for (let x = 0; x < 800; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, 400);
-      ctx.stroke();
-    }
-    for (let y = 0; y < 400; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(800, y);
-      ctx.stroke();
-    }
-
-    // DRAW ROUTE PATHS DEPENDING ON ROUTING MODE
-    let routeNodes = [];
-    if (routingMode === 'fastest') {
-      // Fastest Route cuts directly through isolated danger zones (X: 300, Y: 200, near red warning dot!)
-      routeNodes = [
-        { x: 100, y: 300 },
-        { x: 300, y: 200 }, // Danger zone shortcut
-        { x: 500, y: 220 },
-        { x: 700, y: 100 }
-      ];
-      ctx.strokeStyle = '#ff0054'; // Red alarm path
-      ctx.shadowColor = 'rgba(255,0,84,0.4)';
-    } else {
-      // AI Safest Route loops upwards around the Police beats and Tech-park safe zones to steer clear!
-      routeNodes = [
-        { x: 100, y: 300 },
-        { x: 220, y: 120 }, // Loops up to safe zone
-        { x: 520, y: 80 },  // Passes through Police interceptor beat
-        { x: 700, y: 100 }
-      ];
-      ctx.strokeStyle = '#06d6a0'; // Emerald safe path
-      ctx.shadowColor = 'rgba(6,214,160,0.4)';
-    }
-
-    // Draw main glowing route lines
-    ctx.lineWidth = 4;
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.moveTo(routeNodes[0].x, routeNodes[0].y);
-    for (let i = 1; i < routeNodes.length; i++) {
-      ctx.lineTo(routeNodes[i].x, routeNodes[i].y);
-    }
-    ctx.stroke();
-    ctx.shadowBlur = 0; // Reset shadow glow
-
-    // Draw route nodes
-    ctx.fillStyle = routingMode === 'fastest' ? 'var(--danger)' : '#06d6a0';
-    routeNodes.forEach(node => {
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI);
-      ctx.fill();
-    });
-
-    // Draw crowdsourced database reports
-    reports.forEach(report => {
-      if (!report.location || report.location.lat === undefined) return;
-      const { x, y } = latLngToCanvas(report.location.lat, report.location.lng);
-      
-      let color = '#06d6a0';
-      let glow = 'rgba(6, 214, 160, 0.4)';
-      
-      if (report.type === 'unsafe') {
-        color = '#ff0054';
-        glow = 'rgba(255, 0, 84, 0.4)';
-      } else if (report.type === 'warning') {
-        color = '#ff7b00';
-        glow = 'rgba(255, 123, 0, 0.4)';
-      } else if (report.type === 'police') {
-        color = '#00f5d4';
-        glow = 'rgba(0, 245, 212, 0.4)';
-      }
-
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(x, y, 16, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 6, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      ctx.font = '10px Inter';
-      ctx.fillText(report.title, x + 10, y + 4);
-    });
-
-    // Draw label coordinate pings
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '11px monospace';
-    ctx.fillText('📡 Simulated Tech-Park Map Grid | Double click anywhere to report/flag an incident', 20, 380);
-
-  }, [reports, routingMode]);
-
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>Crowdsourced Safety Zones</h1>
-          <p style={{ color: 'var(--text-muted)' }}>MERN backend integration tracking incident heatmaps</p>
+          <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>Safety Zones & GPS Co-Pilot</h1>
+          <p style={{ color: 'var(--text-muted)' }}>Real-time location reporting overlay & safest routing engines</p>
         </div>
         
-        {/* Routing Mode Toggler (ADVANCED FEATURE WIDGET) */}
+        {/* Routing Mode Toggler (Safest vs. Fastest vs. Crowded) */}
         <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '6px' }}>
-          <button
-            onClick={() => setRoutingMode('fastest')}
-            style={{
-              background: routingMode === 'fastest' ? 'rgba(255,0,84,0.15)' : 'none',
-              border: 'none',
-              color: routingMode === 'fastest' ? 'var(--danger)' : 'var(--text-muted)',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '700',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'var(--transition-smooth)'
-            }}
-          >
-            ⚠️ Fastest Route
-          </button>
           <button
             onClick={() => setRoutingMode('safest')}
             style={{
-              background: routingMode === 'safest' ? 'rgba(6,214,160,0.15)' : 'none',
+              background: routingMode === 'safest' ? 'rgba(221, 192, 169, 0.18)' : 'none',
               border: 'none',
-              color: routingMode === 'safest' ? '#06d6a0' : 'var(--text-muted)',
+              color: routingMode === 'safest' ? 'var(--text-main)' : 'var(--text-muted)',
               padding: '8px 16px',
               borderRadius: '8px',
               cursor: 'pointer',
               fontWeight: '700',
               fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
               transition: 'var(--transition-smooth)'
             }}
           >
-            🛡️ AI Safest Route
+            🛡️ AI Safest
+          </button>
+          
+          <button
+            onClick={() => setRoutingMode('crowded')}
+            style={{
+              background: routingMode === 'crowded' ? 'rgba(138, 115, 102, 0.18)' : 'none',
+              border: 'none',
+              color: routingMode === 'crowded' ? 'var(--text-main)' : 'var(--text-muted)',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '0.82rem',
+              transition: 'var(--transition-smooth)'
+            }}
+          >
+            👥 Crowded Road
+          </button>
+
+          <button
+            onClick={() => setRoutingMode('fastest')}
+            style={{
+              background: routingMode === 'fastest' ? 'rgba(184, 58, 37, 0.18)' : 'none',
+              border: 'none',
+              color: routingMode === 'fastest' ? 'var(--secondary)' : 'var(--text-muted)',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '0.82rem',
+              transition: 'var(--transition-smooth)'
+            }}
+          >
+            ⚠️ Fastest
           </button>
         </div>
       </div>
 
-      {routingMode === 'safest' ? (
-        <div className="safety-banner safe" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+      {/* Safety Routing Info Banners */}
+      {routingMode === 'safest' && (
+        <div className="safety-banner safe">
           <i className="fa-solid fa-route" style={{ fontSize: '1.2rem' }}></i>
           <span>**AI CRIME-SENTRY ACTIVE:** Mapped route steers clear of reported construction hazards and isolated dark stretches. Route security index is 94%.</span>
         </div>
-      ) : (
-        <div className="safety-banner danger" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+      )}
+      {routingMode === 'crowded' && (
+        <div className="safety-banner warning" style={{ borderColor: 'var(--primary-glow)', color: 'var(--primary)' }}>
+          <i className="fa-solid fa-users" style={{ fontSize: '1.2rem' }}></i>
+          <span>**CROWDED ROUTE ENABLED:** Prioritizing busy commercial streets, high foot-traffic walkways, and shopping areas. Walking index is high.</span>
+        </div>
+      )}
+      {routingMode === 'fastest' && (
+        <div className="safety-banner danger">
           <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: '1.2rem' }}></i>
-          <span>**WARNING:** Fastest route cuts directly through high-risk alley ways. Deviating or walking alone is highly discouraged.</span>
+          <span>**WARNING:** Fastest route cuts directly through high-risk alleyways. Walking alone here is highly discouraged.</span>
         </div>
       )}
 
-      {/* Canvas Map Wrapper */}
+      {/* Real Interactive Leaflet Map Container */}
       <div className="glass-panel" style={{ padding: '12px', overflow: 'hidden', marginBottom: '32px' }}>
-        <canvas
-          id="safety-map-canvas"
-          width="800"
-          height="400"
-          onClick={handleMapClick}
-          style={{
-            width: '100%',
-            height: 'auto',
-            borderRadius: '12px',
-            cursor: 'crosshair',
-            display: 'block'
-          }}
-        />
+        <div id="map-id" style={{ width: '100%', height: '450px', borderRadius: '12px', zIndex: 1 }}></div>
+        <div style={{ marginTop: '10px', fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+          💡 Click anywhere on the map to flag a safety incident or report a new zone.
+        </div>
       </div>
 
-      {/* Legend & Details */}
+      {/* Map Legend */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-        <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #06d6a0' }}>
-          <div className="avatar" style={{ background: 'rgba(6, 214, 160, 0.1)', color: '#06d6a0' }}><i className="fa-solid fa-circle-check"></i></div>
+        <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid var(--primary)' }}>
+          <div className="avatar" style={{ background: 'var(--bg-darker)', color: 'var(--primary)' }}><i className="fa-solid fa-circle-check"></i></div>
           <div>
-            <h4 style={{ color: '#06d6a0' }}>Safe Zones</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Pre-verified tech-parks</p>
+            <h4 style={{ color: 'var(--primary)' }}>Safe Areas</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Well-lit crowded streets</p>
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #00f5d4' }}>
-          <div className="avatar" style={{ background: 'rgba(0, 245, 212, 0.1)', color: '#00f5d4' }}><i className="fa-solid fa-shield-halved"></i></div>
+        <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #f5f1ed' }}>
+          <div className="avatar" style={{ background: 'var(--bg-darker)', color: '#f5f1ed' }}><i className="fa-solid fa-shield-halved"></i></div>
           <div>
-            <h4 style={{ color: '#00f5d4' }}>Police Beats</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Stationary squad cars</p>
+            <h4 style={{ color: '#f5f1ed' }}>Police Beats</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Stationed patrol booths</p>
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #ff7b00' }}>
-          <div className="avatar" style={{ background: 'rgba(255, 123, 0, 0.1)', color: '#ff7b00' }}><i className="fa-solid fa-triangle-exclamation"></i></div>
+        <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #8a7366' }}>
+          <div className="avatar" style={{ background: 'var(--bg-darker)', color: '#8a7366' }}><i className="fa-solid fa-triangle-exclamation"></i></div>
           <div>
-            <h4 style={{ color: '#ff7b00' }}>Warnings</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Underground metros/hazards</p>
+            <h4 style={{ color: '#8a7366' }}>Warnings</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Poorly lit roads / construction</p>
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #ff0054' }}>
-          <div className="avatar" style={{ background: 'rgba(255, 0, 84, 0.1)', color: '#ff0054' }}><i className="fa-solid fa-skull-crossbones"></i></div>
+        <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid var(--secondary)' }}>
+          <div className="avatar" style={{ background: 'var(--bg-darker)', color: 'var(--secondary)' }}><i className="fa-solid fa-skull-crossbones"></i></div>
           <div>
-            <h4 style={{ color: '#ff0054' }}>Unsafe Outposts</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Isolated road dark points</p>
+            <h4 style={{ color: 'var(--secondary)' }}>Unsafe Hotspots</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Aggressive crowds/crime logs</p>
           </div>
         </div>
       </div>
 
-      {/* List of active reports */}
+      {/* Incident List */}
       <div className="glass-panel" style={{ padding: '24px' }}>
-        <h3 style={{ marginBottom: '16px' }}><i className="fa-solid fa-list-check" style={{ color: 'var(--primary)' }}></i> Database Records</h3>
+        <h3 style={{ marginBottom: '16px' }}><i className="fa-solid fa-list-check" style={{ color: 'var(--primary)' }}></i> Crowdsourced Database Records</h3>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
             <i className="fa-solid fa-spinner fa-spin"></i> Fetching records from MongoDB...
           </div>
         ) : reports.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>No reports found.</div>
+          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>No records found.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {reports.map((report) => (
-              <div
-                key={report._id}
-                style={{
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid var(--border-glass)',
-                  borderRadius: '10px',
-                  padding: '16px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
-                <div>
-                  <h4 style={{
+            {reports.map((report) => {
+              let tagColor = 'var(--primary)';
+              if (report.type === 'unsafe') tagColor = 'var(--secondary)';
+              if (report.type === 'warning') tagColor = '#8a7366';
+              if (report.type === 'police') tagColor = '#f5f1ed';
+
+              return (
+                <div
+                  key={report._id}
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '10px',
+                    padding: '16px',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    color: report.type === 'unsafe' ? 'var(--danger)' : report.type === 'warning' ? 'var(--secondary)' : report.type === 'police' ? '#00f5d4' : '#06d6a0'
-                  }}>
-                    <i className={report.type === 'unsafe' ? 'fa-solid fa-circle-exclamation' : report.type === 'warning' ? 'fa-solid fa-triangle-exclamation' : report.type === 'police' ? 'fa-solid fa-shield-halved' : 'fa-solid fa-circle-check'}></i>
-                    {report.title}
-                  </h4>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '6px' }}>{report.description}</p>
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: tagColor }}>
+                      <i className={report.type === 'unsafe' ? 'fa-solid fa-circle-exclamation' : report.type === 'warning' ? 'fa-solid fa-triangle-exclamation' : report.type === 'police' ? 'fa-solid fa-shield-halved' : 'fa-solid fa-circle-check'}></i>
+                      {report.title}
+                    </h4>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '6px' }}>{report.description}</p>
+                  </div>
+                  <div style={{ textTransform: 'uppercase', fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--text-muted)', textAlign: 'right' }}>
+                    <div>GPS: {report.location.lat.toFixed(4)}, {report.location.lng.toFixed(4)}</div>
+                  </div>
                 </div>
-                <div style={{ textTransform: 'uppercase', fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--text-muted)', textAlign: 'right' }}>
-                  <div>GPS: {report.location.lat.toFixed(4)}, {report.location.lng.toFixed(4)}</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -386,7 +418,7 @@ const SafetyZones = () => {
               <i className="fa-solid fa-map-pin" style={{ color: 'var(--secondary)' }}></i> Flag Safety Node / Report Incident
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '20px' }}>
-              This details will be stored globally in MongoDB and rendered instantly on all co-worker maps.
+              This detail will be saved globally to your MongoDB cluster and plotted live.
             </p>
 
             <form onSubmit={handleAddReport}>
@@ -395,7 +427,7 @@ const SafetyZones = () => {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="e.g. Broken Streetlights, Aggressive Stray Dogs"
+                  placeholder="e.g. Unlit Commercial Alley, Active Street Fight"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   required
@@ -407,7 +439,7 @@ const SafetyZones = () => {
                 <textarea
                   className="input-field"
                   style={{ minHeight: '80px', resize: 'vertical' }}
-                  placeholder="Details of the hazard or safety parameter..."
+                  placeholder="Details of safety factors in this zone..."
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
                   required
@@ -417,10 +449,10 @@ const SafetyZones = () => {
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label className="form-label">Safety Node Classification</label>
                 <select className="input-field" value={newType} onChange={(e) => setNewType(e.target.value)}>
-                  <option value="safe">🟢 Safe Zone (Active security guards, bright lights)</option>
-                  <option value="police">🔵 Police Checkpost (Stationary squad car nearby)</option>
-                  <option value="warning">🟡 Warning Zone (Broken lights, isolated, slippery road)</option>
-                  <option value="unsafe">🔴 Unsafe Area (Aggressive strangers, active crime report)</option>
+                  <option value="safe">🟢 Safe Zone (Active security, well-lit crowded street)</option>
+                  <option value="police">⚪ Police Checkpost (Stationary squad car nearby)</option>
+                  <option value="warning">🟤 Warning Zone (Broken lights, isolated street)</option>
+                  <option value="unsafe">🔴 Unsafe Area (Aggressive strangers, reported threat)</option>
                 </select>
               </div>
 
@@ -429,7 +461,7 @@ const SafetyZones = () => {
                   Cancel
                 </button>
                 <button type="submit" className="btn-secondary">
-                  Save to MongoDB <i className="fa-solid fa-floppy-disk"></i>
+                  Save to Database <i className="fa-solid fa-floppy-disk"></i>
                 </button>
               </div>
             </form>

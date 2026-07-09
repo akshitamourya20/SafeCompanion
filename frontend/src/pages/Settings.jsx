@@ -66,10 +66,10 @@ const Settings = () => {
 
       {feedback.msg && (
         <div style={{
-          background: feedback.type === 'success' ? 'rgba(6, 214, 160, 0.08)' : 'rgba(255, 0, 84, 0.08)',
+          background: feedback.type === 'success' ? 'rgba(221, 192, 169, 0.18)' : 'rgba(154, 32, 18, 0.18)',
           border: '1px solid',
-          borderColor: feedback.type === 'success' ? 'rgba(6, 214, 160, 0.3)' : 'rgba(255, 0, 84, 0.3)',
-          color: feedback.type === 'success' ? '#06d6a0' : 'var(--danger)',
+          borderColor: feedback.type === 'success' ? 'var(--border-glass)' : 'rgba(154, 32, 18, 0.3)',
+          color: feedback.type === 'success' ? 'var(--primary)' : 'var(--danger)',
           padding: '14px 18px',
           borderRadius: '10px',
           fontSize: '0.9rem',
@@ -97,9 +97,9 @@ const Settings = () => {
           <div
             key={index}
             style={{
-              display: 'grid',
-              gridTemplateColumns: '1.2fr 1fr',
-              gap: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
               background: 'rgba(255,255,255,0.01)',
               border: '1px solid var(--border-glass)',
               borderRadius: '10px',
@@ -107,27 +107,50 @@ const Settings = () => {
               marginBottom: '16px'
             }}
           >
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Contact Name {index + 1}</label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="e.g. Papa, HR Security Desk"
-                value={contact.name}
-                onChange={(e) => handleContactChange(index, 'name', e.target.value)}
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Contact Name {index + 1}</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. Papa, HR Security Desk"
+                  value={contact.name}
+                  onChange={(e) => handleContactChange(index, 'name', e.target.value)}
+                />
+              </div>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Phone Number {index + 1}</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. +91 99999 00000"
+                  value={contact.phone}
+                  onChange={(e) => handleContactChange(index, 'phone', e.target.value)}
+                />
+              </div>
             </div>
-            
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Phone Number {index + 1}</label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="e.g. +91 99999 00000"
-                value={contact.phone}
-                onChange={(e) => handleContactChange(index, 'phone', e.target.value)}
-              />
-            </div>
+
+            {/* Test Call Trigger option */}
+            {contact.phone && contact.phone.trim() !== '' && (
+              <div style={{ alignSelf: 'flex-end', marginTop: '4px' }}>
+                <a
+                  href={`tel:${contact.phone}`}
+                  className="btn-glass"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.8rem',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <i className="fa-solid fa-phone" style={{ color: 'var(--primary)' }}></i> Dial {contact.name || `Guardian ${index + 1}`}
+                </a>
+              </div>
+            )}
           </div>
         ))}
 

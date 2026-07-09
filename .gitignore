@@ -1,0 +1,9 @@
+node_modules/
+.env
+dist/
+build/
+backend/data/*.json
+!backend/data/users.json
+!backend/data/reports.json
+!backend/data/chats.json
+!backend/data/evidence.json

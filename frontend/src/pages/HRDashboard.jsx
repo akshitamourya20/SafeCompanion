@@ -18,7 +18,7 @@ const HRDashboard = () => {
   // B2B Cab Ride Simulator State
   const [cabRideActive, setCabRideActive] = useState(false);
   const [cabPosition, setCabPosition] = useState({ x: 20, y: 110 }); // Canvas pixels
-  const [cabStatusText, setCabStatusText] = useState('Cab standing at Tech-Park pick-up point.');
+  const [cabStatusText, setCabStatusText] = useState('Cab standing at dispatch pick-up point.');
   const [cabAnomalyTriggered, setCabAnomalyTriggered] = useState(false);
 
   const fetchEmployees = async () => {
@@ -109,13 +109,13 @@ const HRDashboard = () => {
     if (cabRideActive && !cabAnomalyTriggered) {
       loop = setInterval(() => {
         setCabPosition(prev => {
-          // Creep from left (pick up) to right (Capgemini Campus)
+          // Creep from left (pick up) to right (Office HQ)
           const nextX = prev.x + 8;
           
           if (nextX >= 280) {
             // Reached destination!
             setCabRideActive(false);
-            setCabStatusText('✅ Cab safely arrived at Capgemini campus. Journey secured.');
+            setCabStatusText('✅ Cab safely arrived at company headquarters. Journey secured.');
             return { x: 280, y: 30 };
           }
 
@@ -125,7 +125,7 @@ const HRDashboard = () => {
           } else if (nextX >= 100 && nextX < 200) {
             setCabStatusText(`🚕 Entering Main Ring-road Highway. GPS Alignment: 100%.`);
           } else {
-            setCabStatusText(`🚕 Approaching Sector 5 flyover. Speed: 52km/h. Escort check-in: SECURE.`);
+            setCabStatusText(`🚕 Approaching flyover exit. Speed: 52km/h. Escort check-in: SECURE.`);
           }
 
           return { x: nextX, y: 110 - (nextX * 0.28) }; // Move diagonally upwards
@@ -173,7 +173,7 @@ const HRDashboard = () => {
   };
 
   const triggerPatrol = (empName) => {
-    setPatrolStatus(`🚓 Dispatching Capgemini Emergency Patrol to ${empName}'s live coordinates...`);
+    setPatrolStatus(`🚓 Dispatching Corporate Security Patrol to ${empName}'s live coordinates...`);
     setTimeout(() => {
       setPatrolStatus(`🚨 PATROL IN TRANSIT: Emergency vehicle is 3 minutes away from ${empName}.`);
     }, 3000);
@@ -190,8 +190,8 @@ const HRDashboard = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>Corporate B2B HR Desk</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Real-time night-shift safety status monitoring center</p>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: '800' }}>Corporate Safety Desk</h1>
+          <p style={{ color: 'var(--text-muted)' }}>Real-time employee safety status monitoring center</p>
         </div>
         
         {/* Tab Selector Widgets */}
@@ -199,9 +199,9 @@ const HRDashboard = () => {
           <button
             onClick={() => setActiveTab('roster')}
             style={{
-              background: activeTab === 'roster' ? 'rgba(82, 183, 136, 0.18)' : 'none',
+              background: activeTab === 'roster' ? 'rgba(221, 192, 169, 0.18)' : 'none',
               border: 'none',
-              color: activeTab === 'roster' ? 'var(--primary)' : 'var(--text-muted)',
+              color: activeTab === 'roster' ? 'var(--text-main)' : 'var(--text-muted)',
               padding: '8px 16px',
               borderRadius: '8px',
               cursor: 'pointer',
@@ -220,7 +220,7 @@ const HRDashboard = () => {
               fetchEvidenceLogs();
             }}
             style={{
-              background: activeTab === 'evidence' ? 'rgba(217, 78, 52, 0.18)' : 'none',
+              background: activeTab === 'evidence' ? 'rgba(184, 58, 37, 0.18)' : 'none',
               border: 'none',
               color: activeTab === 'evidence' ? 'var(--secondary)' : 'var(--text-muted)',
               padding: '8px 16px',
@@ -247,7 +247,7 @@ const HRDashboard = () => {
 
       {activeTab === 'roster' ? (
         /* ROSTER TRACKING TAB */
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '24px', alignItems: 'start' }}>
+        <div className="hr-grid" style={{ alignItems: 'start' }}>
           
           {/* Employee List Panel */}
           <div className="glass-panel" style={{ padding: '24px' }}>
@@ -271,7 +271,7 @@ const HRDashboard = () => {
                     key={emp._id}
                     onClick={() => setSelectedEmp(emp)}
                     style={{
-                      background: selectedEmp?._id === emp._id ? 'rgba(82, 183, 136, 0.12)' : 'rgba(255,255,255,0.02)',
+                      background: selectedEmp?._id === emp._id ? 'rgba(221, 192, 169, 0.12)' : 'rgba(255,255,255,0.02)',
                       border: '1px solid',
                       borderColor: selectedEmp?._id === emp._id ? 'var(--primary)' : 'var(--border-glass)',
                       borderRadius: '10px',
@@ -289,7 +289,7 @@ const HRDashboard = () => {
                     </div>
                     
                     <span style={{
-                      background: emp.status === 'Safe' ? 'rgba(82, 183, 136, 0.15)' : emp.status === 'Anomaly Detected' ? 'rgba(217, 78, 52, 0.15)' : 'rgba(185, 58, 37, 0.15)',
+                      background: emp.status === 'Safe' ? 'rgba(221, 192, 169, 0.15)' : emp.status === 'Anomaly Detected' ? 'rgba(184, 58, 37, 0.15)' : 'rgba(154, 32, 18, 0.15)',
                       color: emp.status === 'Safe' ? 'var(--primary)' : emp.status === 'Anomaly Detected' ? 'var(--secondary)' : 'var(--danger)',
                       padding: '4px 10px',
                       borderRadius: '20px',
@@ -313,7 +313,7 @@ const HRDashboard = () => {
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Email: {selectedEmp.email}</p>
                 </div>
                 <span style={{
-                  background: selectedEmp.status === 'Safe' ? 'rgba(82, 183, 136, 0.2)' : selectedEmp.status === 'Anomaly Detected' ? 'rgba(217, 78, 52, 0.2)' : 'rgba(185, 58, 37, 0.2)',
+                  background: selectedEmp.status === 'Safe' ? 'rgba(221, 192, 169, 0.2)' : selectedEmp.status === 'Anomaly Detected' ? 'rgba(184, 58, 37, 0.2)' : 'rgba(154, 32, 18, 0.2)',
                   color: selectedEmp.status === 'Safe' ? 'var(--primary)' : selectedEmp.status === 'Anomaly Detected' ? 'var(--secondary)' : 'var(--danger)',
                   padding: '6px 14px',
                   borderRadius: '20px',
@@ -329,7 +329,7 @@ const HRDashboard = () => {
 
               {/* ADVANCED B2B FEATURE: Real-time Audio listen-in monitor when selected employee triggers SOS! */}
               {selectedEmp.status === 'SOS Active' && (
-                <div style={{ background: 'rgba(185, 58, 37, 0.06)', border: '1px solid rgba(185, 58, 37, 0.25)', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
+                <div style={{ background: 'rgba(184, 58, 37, 0.06)', border: '1px solid rgba(184, 58, 37, 0.25)', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <span style={{ color: 'var(--danger)', fontWeight: '700', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <i className="fa-solid fa-volume-high fa-beat"></i> LIVE MIC BRIDGE ACTIVE
@@ -345,14 +345,14 @@ const HRDashboard = () => {
                     <span style={{ color: 'var(--danger)', fontFamily: 'monospace', fontSize: '0.78rem' }}>{ambientAudioLevel} dB</span>
                   </div>
 
-                  <div style={{ background: '#040e0a', borderRadius: '8px', padding: '12px', border: '1px solid rgba(82,183,136,0.15)', fontSize: '0.85rem', color: '#f3f4f6', fontStyle: 'italic' }}>
+                  <div style={{ background: '#171311', borderRadius: '8px', padding: '12px', border: '1px solid var(--border-glass)', fontSize: '0.85rem', color: '#f3f4f6', fontStyle: 'italic' }}>
                     "{liveTranscript}"
                   </div>
                 </div>
               )}
 
               {/* DYNAMIC B2B FEATURE: Corporate Cab Ride Journey Simulator Game! */}
-              <div className="glass-panel" style={{ padding: '16px', background: 'rgba(4, 14, 10, 0.4)', marginBottom: '24px' }}>
+              <div className="glass-panel" style={{ padding: '16px', background: 'rgba(23, 29, 26, 0.4)', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <h4 style={{ fontSize: '0.88rem', color: 'var(--primary)', textTransform: 'uppercase' }}>
                     🚕 Late-Night Corporate Cab Escort
@@ -363,14 +363,14 @@ const HRDashboard = () => {
                 </div>
 
                 {/* Canvas grid tracking route */}
-                <div style={{ background: '#040e0a', border: '1px solid var(--border-glass)', borderRadius: '10px', height: '140px', position: 'relative', overflow: 'hidden', marginBottom: '12px' }}>
+                <div style={{ background: '#171311', border: '1px solid var(--border-glass)', borderRadius: '10px', height: '140px', position: 'relative', overflow: 'hidden', marginBottom: '12px' }}>
                   
                   {/* Dotted Route Line */}
                   <div style={{
                     position: 'absolute',
                     width: '320px',
                     height: '2px',
-                    borderTop: '2px dashed rgba(82, 183, 136, 0.25)',
+                    borderTop: '2px dashed rgba(221, 192, 169, 0.25)',
                     top: '50%',
                     left: '20px',
                     transform: 'translateY(-50%) rotate(-12deg)'
@@ -385,7 +385,7 @@ const HRDashboard = () => {
                   {/* Destination Campus marker */}
                   <div style={{ position: 'absolute', top: '15px', right: '15px', textAlign: 'center' }}>
                     <div style={{ fontSize: '1.2rem' }}>🏢</div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Campus</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>HQ Office</div>
                   </div>
 
                   {/* Simulated Hijack off-route point */}
@@ -436,8 +436,26 @@ const HRDashboard = () => {
                   <h4 style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '4px' }}>Emergency Circle</h4>
                   <div style={{ fontSize: '0.9rem' }}>
                     {selectedEmp.emergencyContacts && selectedEmp.emergencyContacts.length > 0 ? (
-                      <div>
-                        {selectedEmp.emergencyContacts[0].name} ({selectedEmp.emergencyContacts[0].phone})
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{selectedEmp.emergencyContacts[0].name}</span>
+                        <a
+                          href={`tel:${selectedEmp.emergencyContacts[0].phone}`}
+                          style={{
+                            color: 'var(--primary)',
+                            textDecoration: 'none',
+                            background: 'rgba(221, 192, 169, 0.12)',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.78rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            border: '1px solid var(--border-glass)'
+                          }}
+                          title={`Call ${selectedEmp.emergencyContacts[0].name}`}
+                        >
+                          <i className="fa-solid fa-phone"></i> {selectedEmp.emergencyContacts[0].phone}
+                        </a>
                       </div>
                     ) : (
                       <span>No contacts configured</span>
@@ -495,7 +513,7 @@ const HRDashboard = () => {
                 <div
                   key={log._id}
                   style={{
-                    background: 'rgba(217, 78, 52, 0.03)',
+                    background: 'rgba(184, 58, 37, 0.03)',
                     border: '1px solid var(--border-glass)',
                     borderRadius: '12px',
                     padding: '20px',
@@ -514,13 +532,13 @@ const HRDashboard = () => {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '20px', alignItems: 'center' }}>
-                    <div style={{ background: '#040e0a', borderRadius: '8px', padding: '12px', fontSize: '0.9rem', color: '#f3f4f6', fontStyle: 'italic', borderLeft: '3px solid var(--secondary)' }}>
+                    <div style={{ background: '#171311', borderRadius: '8px', padding: '12px', fontSize: '0.9rem', color: '#f3f4f6', fontStyle: 'italic', borderLeft: '3px solid var(--secondary)' }}>
                       "{log.transcript}"
                     </div>
                     
                     <div style={{ fontSize: '0.78rem', fontFamily: 'monospace', color: 'var(--text-muted)', textAlign: 'right' }}>
                       <div>Duration: {log.audioLength} sec</div>
-                      <div style={{ color: '#52b788', marginTop: '4px' }}>🔒 Verified Signature:</div>
+                      <div style={{ color: 'var(--primary)', marginTop: '4px' }}>🔒 Verified Signature:</div>
                       <div style={{ wordBreak: 'break-all' }}>{log.encryptedHash}</div>
                     </div>
                   </div>

@@ -102,7 +102,7 @@ const Signup = ({ setPage }) => {
                 type="email"
                 className="input-field"
                 style={{ paddingLeft: '44px' }}
-                placeholder="akshita@capgemini.com"
+                placeholder="akshita@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

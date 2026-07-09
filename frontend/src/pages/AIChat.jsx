@@ -24,11 +24,11 @@ Tell me, where are you heading tonight, or are you feeling unsafe in your curren
         timestamp: new Date()
       }
     ]);
-  }, [user]);
+  }, [user?.id]); // Only re-run if the logged-in user changes, not on parent re-renders!
 
-  // Auto scroll chat to bottom
+  // Auto scroll chat to bottom (only scroll internally, do not scroll the parent window)
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages]);
 
   const handleSendMessage = async (e) => {
